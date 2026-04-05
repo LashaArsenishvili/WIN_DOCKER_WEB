@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Win11 Manager</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.9rem 1.5rem;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+    }
+    header h1 { font-size: 1.1rem; color: #f1f5f9; }
+    header span.ver { font-size: 0.75rem; color: #64748b; margin-left: 0.5rem; }
+    #status-badge {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.82rem; color: #94a3b8;
+    }
+    #status-badge .dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #22c55e;
+    }
+    #status-badge .dot.err { background: #ef4444; }
+    a.logout {
+      color: #64748b; font-size: 0.82rem; text-decoration: none;
+      border: 1px solid #334155; padding: 0.3rem 0.7rem; border-radius: 6px;
+    }
+    a.logout:hover { color: #ef4444; border-color: #ef4444; }
+
+    /* ── Main layout ── */
+    main { padding: 1.5rem; max-width: 1300px; margin: 0 auto; }
+
+    /* ── Stat cards row ── */
+    .stats { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-card {
+      flex: 1 1 140px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .stat-card .label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+    .stat-card .value { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; margin-top: 0.2rem; }
+    .stat-card .sub   { font-size: 0.75rem; color: #64748b; margin-top: 0.2rem; }
+
+    /* ── Panel bar ── */
+    .panel-bar {
+      display: flex; gap: 0.7rem; margin-bottom: 1.2rem;
+      align-items: center; flex-wrap: wrap;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      border: none; border-radius: 7px;
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      transition: opacity .15s;
+    }
+    button:hover { opacity: .85; }
+    .btn-primary   { background: #3b82f6; color: #fff; }
+    .btn-success   { background: #22c55e; color: #fff; }
+    .btn-danger    { background: #ef4444; color: #fff; }
+    .btn-warning   { background: #f59e0b; color: #fff; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+
+    /* ── Create form ── */
+    .create-box {
+      display: none;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1.2rem;
+      margin-bottom: 1.3rem;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .create-box.open { display: flex; }
+    .create-box label { font-size: 0.78rem; color: #94a3b8; display: block; margin-bottom: 0.3rem; }
+    .create-box input {
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      padding: 0.45rem 0.7rem;
+      outline: none;
+      width: 180px;
+    }
+    .create-box input:focus { border-color: #3b82f6; }
+
+    /* ── Bulk create form ── */
+    .bulk-box {
+      display: none;
+      background: #1e293b;
+      border: 1px dashed #475569;
+      border-radius: 10px;
+      padding: 1.2rem;
+      margin-bottom: 1.3rem;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .bulk-box.open { display: flex; }
+    .bulk-box label { font-size: 0.78rem; color: #94a3b8; display: block; margin-bottom: 0.3rem; }
+    .bulk-box input {
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      padding: 0.45rem 0.7rem;
+      outline: none;
+      width: 140px;
+    }
+
+    /* ── Pull bar ── */
+    #pull-bar {
+      display: none;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 1.3rem;
+      gap: 1rem;
+      align-items: center;
+    }
+    #pull-bar.open { display: flex; }
+    #pull-progress-wrap { flex: 1; background: #0f172a; border-radius: 100px; height: 10px; overflow: hidden; }
+    #pull-progress-bar  { height: 100%; background: #3b82f6; border-radius: 100px; width: 0%; transition: width .4s; }
+    #pull-label { font-size: 0.82rem; color: #94a3b8; white-space: nowrap; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    thead th {
+      background: #1e293b;
+      color: #64748b;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 0.7rem 0.9rem;
+      text-align: left;
+      white-space: nowrap;
+      border-bottom: 1px solid #334155;
+    }
+    tbody tr {
+      border-bottom: 1px solid #1e293b;
+      transition: background .1s;
+    }
+    tbody tr:hover { background: #1e293b55; }
+    td { padding: 0.65rem 0.9rem; vertical-align: middle; white-space: nowrap; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 100px;
+      font-size: 0.73rem;
+      font-weight: 600;
+    }
+    .badge-running { background: #14532d; color: #86efac; }
+    .badge-stopped,
+    .badge-exited  { background: #450a0a; color: #fca5a5; }
+    .badge-missing { background: #1e293b; color: #64748b; }
+    .badge-creating,
+    .badge-other   { background: #451a03; color: #fcd34d; }
+
+    /* progress mini-bar */
+    .prog-wrap { background: #1e293b; border-radius: 100px; height: 7px; width: 80px; display: inline-block; overflow: hidden; }
+    .prog-bar  { height: 100%; border-radius: 100px; background: #3b82f6; transition: width .6s; }
+
+    /* action row inside td */
+    .actions { display: flex; gap: 0.35rem; }
+
+    /* ── Log modal ── */
+    #log-modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    #log-modal.open { display: flex; }
+    .log-card {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      width: min(900px, 96vw);
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+    }
+    .log-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.9rem 1.2rem;
+      border-bottom: 1px solid #334155;
+    }
+    .log-card-header h3 { font-size: 0.95rem; }
+    #log-close { background: none; color: #94a3b8; font-size: 1.2rem; padding: 0.2rem; }
+    #log-body {
+      flex: 1; overflow-y: auto;
+      padding: 0.9rem 1.2rem;
+      font-family: monospace; font-size: 0.78rem;
+      line-height: 1.6; color: #94a3b8;
+      white-space: pre-wrap; word-break: break-all;
+    }
+
+    /* ── GPU modal ── */
+    #gpu-modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    #gpu-modal.open { display: flex; }
+    .gpu-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      width: min(700px, 96vw);
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+    .gpu-card h3 { margin-bottom: 1rem; }
+    .gpu-row {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 0.7rem;
+      font-size: 0.83rem;
+      line-height: 1.9;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 8px; padding: 0.7rem 1.2rem;
+      font-size: 0.85rem; color: #f1f5f9;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s;
+      z-index: 200;
+      max-width: 320px;
+    }
+    #toast.show { opacity: 1; }
+    #toast.err  { border-color: #ef4444; color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div>
+    <h1>🖥️ Win11 Manager <span class="ver">v3.1</span></h1>
+  </div>
+  <div id="status-badge">
+    <div class="dot" id="docker-dot"></div>
+    <span id="docker-label">Connecting…</span>
+    &nbsp;&nbsp;
+    <button class="btn-secondary btn-sm" onclick="showGpuModal()">🎮 GPUs</button>
+  </div>
+  <a href="/logout" class="logout">Sign out</a>
+</header>
+
+<!-- ── Main ── -->
+<main>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Total VMs</div>
+      <div class="value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Running</div>
+      <div class="value" id="stat-running">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Docker Version</div>
+      <div class="value" id="stat-docker" style="font-size:1rem;margin-top:.5rem">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Host IP</div>
+      <div class="value" id="stat-ip" style="font-size:1rem;margin-top:.5rem">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">KVM</div>
+      <div class="value" id="stat-kvm" style="font-size:1rem;margin-top:.5rem">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">ISO</div>
+      <div class="value" id="stat-iso" style="font-size:0.8rem;margin-top:.5rem;word-break:break-all">—</div>
+    </div>
+  </div>
+
+  <!-- Panel bar -->
+  <div class="panel-bar">
+    <button class="btn-primary" onclick="toggleCreate()">➕ New VM</button>
+    <button class="btn-secondary" onclick="toggleBulk()">📋 Bulk Create</button>
+    <button class="btn-secondary" onclick="togglePull()">⬇️ Pull Image</button>
+    <button class="btn-secondary" onclick="loadSessions()">🔄 Refresh</button>
+  </div>
+
+  <!-- Create form -->
+  <div class="create-box" id="create-box">
+    <div>
+      <label>Username</label>
+      <input id="new-user" placeholder="e.g. alice" maxlength="32"/>
+    </div>
+    <div>
+      <label>Password</label>
+      <input id="new-pass" type="password" placeholder="admin777"/>
+    </div>
+    <button class="btn-success" onclick="createSession()">Create</button>
+    <button class="btn-secondary" onclick="toggleCreate()">Cancel</button>
+  </div>
+
+  <!-- Bulk form -->
+  <div class="bulk-box" id="bulk-box">
+    <div>
+      <label>Prefix</label>
+      <input id="bulk-prefix" placeholder="user" value="user"/>
+    </div>
+    <div>
+      <label>Count (1–20)</label>
+      <input id="bulk-count" type="number" min="1" max="20" value="3"/>
+    </div>
+    <div>
+      <label>Password</label>
+      <input id="bulk-pass" type="password" placeholder="admin777"/>
+    </div>
+    <button class="btn-warning" onclick="bulkCreate()">🚀 Create All</button>
+    <button class="btn-secondary" onclick="toggleBulk()">Cancel</button>
+  </div>
+
+  <!-- Pull bar -->
+  <div id="pull-bar">
+    <button class="btn-primary btn-sm" onclick="startPull()">Pull Now</button>
+    <div id="pull-progress-wrap"><div id="pull-progress-bar"></div></div>
+    <span id="pull-label">Idle</span>
+    <button class="btn-secondary btn-sm" onclick="togglePull()">✕</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Status</th>
+          <th>Progress</th>
+          <th>Web Port</th>
+          <th>RDP</th>
+          <th>Password</th>
+          <th>GPU</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="session-tbody">
+        <tr><td colspan="9" style="text-align:center;color:#64748b;padding:2rem">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<!-- ── Log modal ── -->
+<div id="log-modal">
+  <div class="log-card">
+    <div class="log-card-header">
+      <h3 id="log-title">Logs</h3>
+      <button id="log-close" onclick="closeLog()">✕</button>
+    </div>
+    <div id="log-body">Loading…</div>
+  </div>
+</div>
+
+<!-- ── GPU modal ── -->
+<div id="gpu-modal">
+  <div class="gpu-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3>🎮 GPU Info</h3>
+      <button class="btn-secondary btn-sm" onclick="closeGpu()">✕</button>
+    </div>
+    <div id="gpu-body">Loading…</div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+<script>
+/* ── Toast ── */
+let _toastTimer;
+function toast(msg, err=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (err ? ' err' : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+}
+
+/* ── Toggles ── */
+function toggleCreate() { document.getElementById('create-box').classList.toggle('open'); }
+function toggleBulk()   { document.getElementById('bulk-box').classList.toggle('open'); }
+function togglePull()   { document.getElementById('pull-bar').classList.toggle('open'); }
+
+/* ── Status ── */
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    document.getElementById('docker-dot').className   = 'dot' + (d.docker ? '' : ' err');
+    document.getElementById('docker-label').textContent = d.docker ? '✓ Docker connected' : '✗ Docker error';
+    document.getElementById('stat-docker').textContent  = d.docker_version || '—';
+    document.getElementById('stat-ip').textContent      = d.host_ip || '—';
+    document.getElementById('stat-kvm').textContent     = d.kvm_available ? '✓' : '✗';
+    document.getElementById('stat-iso').textContent     = d.iso_available ? d.iso_name : 'Not set';
+  } catch(e) {
+    document.getElementById('docker-dot').className = 'dot err';
+    document.getElementById('docker-label').textContent = '✗ Cannot reach API';
+  }
+}
+
+/* ── Sessions ── */
+async function loadSessions() {
+  try {
+    const r = await fetch('/api/sessions');
+    const d = await r.json();
+    const sessions = d.sessions || [];
+    document.getElementById('stat-total').textContent   = sessions.length;
+    document.getElementById('stat-running').textContent = sessions.filter(s=>s.status==='running').length;
+    renderTable(sessions);
+  } catch(e) {}
+}
+
+function statusBadge(s) {
+  const cls = {running:'badge-running',exited:'badge-exited',stopped:'badge-stopped',missing:'badge-missing'}[s] || 'badge-other';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+
+function renderTable(sessions) {
+  const tbody = document.getElementById('session-tbody');
+  if (!sessions.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#64748b;padding:2rem">No VMs yet — create one above.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sessions.map(s => {
+    const pct   = s.install_pct || 0;
+    const stage = s.install_stage || '';
+    const prog  = pct >= 100
+      ? `<span style="color:#22c55e;font-size:.75rem">✅ Ready</span>`
+      : `<div class="prog-wrap"><div class="prog-bar" style="width:${pct}%"></div></div>
+         <span style="font-size:.72rem;color:#94a3b8;margin-left:.4rem">${pct}%</span>
+         <br/><span style="font-size:.7rem;color:#64748b">${stage}</span>`;
+    return `<tr>
+      <td><b>${s.username}</b></td>
+      <td>${statusBadge(s.status)}</td>
+      <td>${prog}</td>
+      <td><a href="${s.web_url}" target="_blank" style="color:#60a5fa">${s.web_port}</a></td>
+      <td style="color:#94a3b8">${s.rdp_target}</td>
+      <td><code style="font-size:.78rem">${s.password}</code></td>
+      <td style="color:${s.gpu_enabled?'#22c55e':'#64748b'}">${s.gpu_enabled?'✓':'—'}</td>
+      <td style="color:#64748b">${s.created_at}</td>
+      <td class="actions">
+        ${s.status==='running'
+          ? `<button class="btn-warning btn-sm" onclick="stopSession('${s.username}')">⏹</button>`
+          : `<button class="btn-success btn-sm" onclick="startSession('${s.username}')">▶</button>`}
+        <button class="btn-secondary btn-sm" onclick="restartSession('${s.username}')">↺</button>
+        <button class="btn-secondary btn-sm" onclick="openLog('${s.username}')">📋</button>
+        <button class="btn-danger btn-sm" onclick="deleteSession('${s.username}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── CRUD ── */
+async function createSession() {
+  const u = document.getElementById('new-user').value.trim();
+  const p = document.getElementById('new-pass').value.trim();
+  if (!u) { toast('Username required', true); return; }
+  const r = await fetch('/api/sessions', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username:u, password:p||undefined})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error||'Error', true); return; }
+  toast(d.message);
+  toggleCreate();
+  setTimeout(loadSessions, 1500);
+}
+
+async function stopSession(u) {
+  const r = await fetch(`/api/sessions/${u}/stop`, {method:'POST'});
+  const d = await r.json();
+  toast(d.message||d.error, !r.ok);
+  setTimeout(loadSessions, 1000);
+}
+
+async function startSession(u) {
+  const r = await fetch(`/api/sessions/${u}/start`, {method:'POST'});
+  const d = await r.json();
+  toast(d.message||d.error, !r.ok);
+  setTimeout(loadSessions, 1000);
+}
+
+async function restartSession(u) {
+  const r = await fetch(`/api/sessions/${u}/restart`, {method:'POST'});
+  const d = await r.json();
+  toast(d.message||d.error, !r.ok);
+  setTimeout(loadSessions, 1000);
+}
+
+async function deleteSession(u) {
+  if (!confirm(`Delete VM '${u}'? This cannot be undone.`)) return;
+  const r = await fetch(`/api/sessions/${u}`, {method:'DELETE'});
+  const d = await r.json();
+  toast(d.message||d.error, !r.ok);
+  loadSessions();
+}
+
+async function bulkCreate() {
+  const prefix = document.getElementById('bulk-prefix').value.trim()||'user';
+  const count  = parseInt(document.getElementById('bulk-count').value)||3;
+  const pass   = document.getElementById('bulk-pass').value.trim();
+  const r = await fetch('/api/bulk_create', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({prefix, count, password:pass||undefined})
+  });
+  const d = await r.json();
+  toast(d.message||d.error, !r.ok);
+  toggleBulk();
+  setTimeout(loadSessions, 2000);
+}
+
+/* ── Log modal ── */
+let _logSource = null;
+function openLog(u) {
+  document.getElementById('log-title').textContent = `Logs — ${u}`;
+  document.getElementById('log-body').textContent  = 'Connecting…';
+  document.getElementById('log-modal').classList.add('open');
+  if (_logSource) _logSource.close();
+  _logSource = new EventSource(`/api/sessions/${u}/log_stream`);
+  _logSource.onmessage = e => {
+    const payload = JSON.parse(e.data);
+    const body = document.getElementById('log-body');
+    body.textContent += payload.line + '\n';
+    body.scrollTop = body.scrollHeight;
+  };
+  _logSource.onerror = () => {
+    document.getElementById('log-body').textContent += '\n[stream closed]';
+    _logSource.close();
+  };
+}
+function closeLog() {
+  document.getElementById('log-modal').classList.remove('open');
+  if (_logSource) { _logSource.close(); _logSource = null; }
+}
+
+/* ── Pull ── */
+let _pullTimer;
+async function startPull() {
+  document.getElementById('pull-label').textContent = 'Starting…';
+  await fetch('/api/pull_image', {method:'POST'});
+  clearInterval(_pullTimer);
+  _pullTimer = setInterval(async () => {
+    const r = await fetch('/api/pull_progress');
+    const d = await r.json();
+    document.getElementById('pull-progress-bar').style.width = d.pct + '%';
+    document.getElementById('pull-label').textContent = `${d.pct}% — ${d.detail}`;
+    if (d.status === 'done' || d.status === 'error') clearInterval(_pullTimer);
+  }, 1000);
+}
+
+/* ── GPU modal ── */
+async function showGpuModal() {
+  document.getElementById('gpu-body').innerHTML = 'Loading…';
+  document.getElementById('gpu-modal').classList.add('open');
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const gpus = d.gpus || [];
+    if (!gpus.length) {
+      document.getElementById('gpu-body').innerHTML = '<p style="color:#64748b">No NVIDIA GPUs detected.</p>';
+      return;
+    }
+    document.getElementById('gpu-body').innerHTML = gpus.map(g => `
+      <div class="gpu-row">
+        <b style="color:#f1f5f9">${g.index}: ${g.name}</b><br/>
+        VRAM: ${g.memory_free_mb} / ${g.memory_total_mb} MB free &nbsp;|&nbsp;
+        GPU util: ${g.utilization_pct}% &nbsp;|&nbsp;
+        Temp: ${g.temperature_c}°C<br/>
+        UUID: <span style="color:#64748b;font-size:.75rem">${g.uuid}</span><br/>
+        Driver: ${g.driver_version}
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('gpu-body').innerHTML = '<p style="color:#ef4444">Failed to load GPU info.</p>';
+  }
+}
+function closeGpu() { document.getElementById('gpu-modal').classList.remove('open'); }
+
+/* ── Auto-refresh ── */
+loadStatus();
+loadSessions();
+setInterval(() => { loadStatus(); loadSessions(); }, 8000);
+</script>
+</body>
+</html>
